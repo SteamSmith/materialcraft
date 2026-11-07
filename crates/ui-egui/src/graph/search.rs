@@ -26,6 +26,11 @@ pub(super) fn matches(text: &str) -> Vec<&'static materialcraft_engine::nodes::N
     v
 }
 
+/// The "shown / all" line under the search box (numbers only, so it needs no translation).
+pub(super) fn result_count(shown: usize, total: usize) -> String {
+    format!("{shown} / {total}")
+}
+
 pub(super) fn show(app: &mut MaterialCraftApp, ui: &mut Ui, cam: &GraphCamera) {
     let Some(s) = app.graph.search.as_mut() else { return };
 
@@ -51,6 +56,10 @@ pub(super) fn show(app: &mut MaterialCraftApp, ui: &mut Ui, cam: &GraphCamera) {
                 }
             });
             let list = matches(&s.text);
+            if !s.text.trim().is_empty() {
+                let total = matches("").len();
+                ui.label(egui::RichText::new(result_count(list.len(), total)).size(10.0).color(tk.text_dim));
+            }
             let (up, down, enter, esc) = ui.input(|i| {
                 (i.key_pressed(egui::Key::ArrowUp), i.key_pressed(egui::Key::ArrowDown), i.key_pressed(egui::Key::Enter), i.key_pressed(egui::Key::Escape))
             });
@@ -101,3 +110,7 @@ pub(super) fn show(app: &mut MaterialCraftApp, ui: &mut Ui, cam: &GraphCamera) {
         app.graph.search = None;
     }
 }
+
+#[cfg(test)]
+#[path = "search.test.rs"]
+mod tests;
