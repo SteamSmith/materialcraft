@@ -26,6 +26,11 @@ pub(super) fn matches(text: &str) -> Vec<&'static materialcraft_engine::nodes::N
     v
 }
 
+/// Escape clears typed text first; only on an empty box does it close the popup.
+pub(super) fn escape_clears(text: &str) -> bool {
+    !text.is_empty()
+}
+
 pub(super) fn show(app: &mut MaterialCraftApp, ui: &mut Ui, cam: &GraphCamera) {
     let Some(s) = app.graph.search.as_mut() else { return };
 
@@ -61,7 +66,14 @@ pub(super) fn show(app: &mut MaterialCraftApp, ui: &mut Ui, cam: &GraphCamera) {
                 s.sel = s.sel.saturating_sub(1);
             }
             if esc {
-                close = true;
+                if escape_clears(&s.text) {
+                    s.text.clear();
+                    s.sel = 0;
+                    s.focus = true;
+                    reveal_selection = true;
+                } else {
+                    close = true;
+                }
             }
             if enter && let Some(d) = list.get(s.sel) {
                 pick = Some(d.id);
@@ -101,3 +113,7 @@ pub(super) fn show(app: &mut MaterialCraftApp, ui: &mut Ui, cam: &GraphCamera) {
         app.graph.search = None;
     }
 }
+
+#[cfg(test)]
+#[path = "search.test.rs"]
+mod tests;
