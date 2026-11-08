@@ -42,6 +42,7 @@ mod input;
 mod navigation;
 mod node_style;
 mod search;
+mod search_highlight;
 pub(crate) mod selection_commands;
 pub(crate) mod toolbar;
 pub(crate) mod wire_actions;
