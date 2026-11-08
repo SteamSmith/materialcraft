@@ -4,7 +4,9 @@
 //! The picture shows what the view shows (same scene, displaced geometry, lighting, camera and
 //! channels). Only the size and the sampling quality differ.
 
-use std::path::{Path, PathBuf};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, TryRecvError};
 
 use egui::{RichText, vec2};
@@ -132,6 +134,7 @@ fn start(app: &mut MaterialCraftApp, ctx: &egui::Context) {
 fn start(_app: &mut MaterialCraftApp, _ctx: &egui::Context) {}
 
 /// Encode RGBA8 pixels as a PNG and write it atomically.
+#[cfg(not(target_arch = "wasm32"))]
 fn write_png(path: &Path, w: u32, h: u32, rgba: Vec<u8>) -> Result<(), String> {
     let img = image::RgbaImage::from_raw(w, h, rgba).ok_or_else(|| "the render has the wrong size".to_string())?;
     let mut png = Vec::new();
@@ -178,6 +181,7 @@ mod tests {
         assert!((1..=MAX_SIDE).contains(&w) && (1..=MAX_SIDE).contains(&h));
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn write_png_round_trips_and_rejects_a_wrong_buffer() {
         let dir = std::env::temp_dir().join(format!("mc-save-view-{}", std::process::id()));
