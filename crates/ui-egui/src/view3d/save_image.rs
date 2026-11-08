@@ -32,6 +32,24 @@ const HQ_AO_RAYS: u32 = 8;
 #[cfg(not(target_arch = "wasm32"))]
 const HQ_KEY_LIGHT: f32 = 2.5;
 
+/// Threads a save may use: half of the machine's, at least one. The rest stay free so the live view,
+/// which renders on the global pool, keeps its previews and settled frames while a save runs.
+#[cfg(not(target_arch = "wasm32"))]
+fn save_threads(available: usize) -> usize {
+    (available / 2).max(1)
+}
+
+/// The pool the save renders on, built once; `None` if the system refuses to start its threads.
+#[cfg(not(target_arch = "wasm32"))]
+fn save_pool() -> Option<&'static rayon::ThreadPool> {
+    static POOL: std::sync::OnceLock<Option<rayon::ThreadPool>> = std::sync::OnceLock::new();
+    POOL.get_or_init(|| {
+        let available = std::thread::available_parallelism().map_or(2, std::num::NonZeroUsize::get);
+        rayon::ThreadPoolBuilder::new().num_threads(save_threads(available)).thread_name(|i| format!("materialcraft-save-{i}")).build().ok()
+    })
+    .as_ref()
+}
+
 /// A save in progress: the worker reports the written path or an error text.
 pub struct SaveJob {
     rx: Receiver<Result<PathBuf, String>>,
@@ -119,7 +137,11 @@ fn start(app: &mut MaterialCraftApp, ctx: &egui::Context) {
     let (tx, rx) = std::sync::mpsc::channel();
     let (repaint, viewport) = (ctx.clone(), ctx.viewport_id());
     let spawned = std::thread::Builder::new().name("materialcraft-save-view".into()).spawn(move || {
-        let px = materialcraft_render::render(&scene, &maps, &light, &settings, w, h);
+        let draw = || materialcraft_render::render(&scene, &maps, &light, &settings, w, h);
+        let px = match save_pool() {
+            Some(pool) => pool.install(draw),
+            None => draw(),
+        };
         let _ = tx.send(write_png(&path, w, h, px).map(|()| path));
         repaint.request_repaint_of(viewport);
     });
@@ -160,6 +182,16 @@ pub fn poll(app: &mut MaterialCraftApp) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn a_save_takes_half_the_threads_and_never_none() {
+        assert_eq!(save_threads(0), 1);
+        assert_eq!(save_threads(1), 1);
+        assert_eq!(save_threads(2), 1);
+        assert_eq!(save_threads(8), 4);
+        assert_eq!(save_threads(24), 12);
+    }
 
     #[test]
     fn zero_width_keeps_the_view_size() {
